@@ -1,18 +1,21 @@
-const pool = require('./db');
+const pool = require('./dbPostgreesql');
 
 const addExpenseHandler = async (request, h) => {
   const { category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date } = request.payload;
 
   try {
-    const [result] = await pool.execute(
-      `INSERT INTO expenses (category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date]
-    );
+    const query = `
+      INSERT INTO expenses (category, uangmasuk, uangkeluar, uangakhir, description, transaction_date)
+      VALUES ($1, $2, $3, $4, $5, $6)
+      RETURNING expenseid
+    `;
+    const values = [category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date];
+    const result = await pool.query(query, values);
+
     return h.response({
       status: 'success',
       message: 'Expense berhasil ditambahkan',
-      data: { expenseId: result.insertId },
+      data: { expenseid: result.rows[0].expenseid },
     }).code(201);
   } catch (error) {
     console.error('Error adding expense: ', error);
@@ -25,21 +28,21 @@ const addExpenseHandler = async (request, h) => {
 
 const getAllExpensesHandler = async (request, h) => {
   try {
-    const [rows] = await pool.execute(`
+    const query = `
       SELECT 
-        expenseId,
+        expenseid,
         category,
-        uangMasuk,
-        uangKeluar,
-        uangAkhir,
+        uangmasuk,
+        uangkeluar,
+        uangakhir,
         description,
-        DATE_FORMAT(transaction_date, '%Y-%m-%d') AS transaction_date
+        TO_CHAR(transaction_date, 'YYYY-MM-DD') AS transaction_date
       FROM expenses
-    `);
-    
+    `;
+    const result = await pool.query(query);
     return {
       status: 'success',
-      data: { expenses: rows },
+      data: { expenses: result.rows },
     };
   } catch (error) {
     console.error('Error retrieving expenses: ', error);
@@ -51,28 +54,28 @@ const getAllExpensesHandler = async (request, h) => {
 };
 
 const getExpenseByIdHandler = async (request, h) => {
-  const { expenseId } = request.params;
+  const { expenseid } = request.params;
   try {
-    const [rows] = await pool.execute(`
+    const query = `
       SELECT 
-        expenseId,
+        expenseid,
         category,
-        uangMasuk,
-        uangKeluar,
-        uangAkhir,
+        uangmasuk,
+        uangkeluar,
+        uangakhir,
         description,
-        DATE_FORMAT(transaction_date, '%Y-%m-%d') AS transaction_date
+        TO_CHAR(transaction_date, 'YYYY-MM-DD') AS transaction_date
       FROM expenses
-      WHERE expenseId = ?
-    `, [expenseId]);
-
-    if (rows.length === 0) {
+      WHERE expenseid = $1
+    `;
+    const result = await pool.query(query, [expenseid]);
+    if (result.rowCount === 0) {
       return h.response({
         status: 'fail',
         message: 'Expense tidak ditemukan',
       }).code(404);
     }
-    const expense = rows[0];
+    const expense = result.rows[0];
     return {
       status: 'success',
       data: { expense },
@@ -87,48 +90,48 @@ const getExpenseByIdHandler = async (request, h) => {
 };
 
 const updateExpenseByIdHandler = async (request, h) => {
-  const { expenseId } = request.params;
+  const { expenseid } = request.params;
   const { category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date } = request.payload;
 
-  console.log('Updating expense with ID:', expenseId);
+  console.log('Updating expense with ID:', expenseid);
 
   try {
-      const [result] = await pool.execute(
-          `UPDATE expenses SET category = ?, uangMasuk = ?, uangKeluar = ?, uangAkhir = ?, description = ?, transaction_date = ? WHERE expenseId = ?`,
-          [category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date, expenseId]
-      );
+    const query = `
+      UPDATE expenses
+      SET category = $1, uangmasuk = $2, uangkeluar = $3, uangakhir = $4, description = $5, transaction_date = $6
+      WHERE expenseid = $7
+    `;
+    const values = [category, uangMasuk, uangKeluar, uangAkhir, description, transaction_date, expenseid];
+    const result = await pool.query(query, values);
+    console.log('Update result:', result);
 
-      console.log('Update result:', result);
-
-      if (result.affectedRows === 0) {
-          return h.response({
-              status: 'fail',
-              message: 'Expense gagal diperbarui. Id tidak ditemukan',
-          }).code(404);
-      }
-
+    if (result.rowCount === 0) {
       return h.response({
-          status: 'success',
-          message: 'Expense berhasil diperbarui',
-      });
+        status: 'fail',
+        message: 'Expense gagal diperbarui. Id tidak ditemukan',
+      }).code(404);
+    }
+
+    return h.response({
+      status: 'success',
+      message: 'Expense berhasil diperbarui',
+    });
   } catch (error) {
-      console.error('Error updating expense:', error);
-      return h.response({
-          status: 'error',
-          message: 'Gagal memperbarui expense',
-      }).code(500);
+    console.error('Error updating expense:', error);
+    return h.response({
+      status: 'error',
+      message: 'Gagal memperbarui expense',
+    }).code(500);
   }
 };
 
 const deleteExpenseByIdHandler = async (request, h) => {
-  const { expenseId } = request.params;
+  const { expenseid } = request.params;
   try {
-    const [result] = await pool.execute(
-      `DELETE FROM expenses WHERE expenseId = ?`,
-      [expenseId]
-    );
+    const query = `DELETE FROM expenses WHERE expenseid = $1`;
+    const result = await pool.query(query, [expenseid]);
 
-    if (result.affectedRows === 0) {
+    if (result.rowCount === 0) {
       return h.response({
         status: 'fail',
         message: 'Expense gagal dihapus. Id tidak ditemukan',

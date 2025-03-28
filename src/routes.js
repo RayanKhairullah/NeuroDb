@@ -46,12 +46,12 @@ const routes = [
   },
   {
     method: 'GET',
-    path: '/expenses/{expenseId}',
+    path: '/expenses/{expenseid}',
     handler: getExpenseByIdHandler,
     options: {
       validate: {
         params: Joi.object({
-          expenseId: Joi.number().integer().required(),
+          expenseid: Joi.number().integer().required(),
         }),
         failAction: (request, h, error) => {
           const errMsg = error.details[0].message;
@@ -71,12 +71,12 @@ const routes = [
   },
   {
     method: 'PUT',
-    path: '/expenses/{expenseId}',
+    path: '/expenses/{expenseid}',
     handler: updateExpenseByIdHandler,
     options: {
       validate: {
         params: Joi.object({
-          expenseId: Joi.number().integer().required(),
+          expenseid: Joi.number().integer().required(),
         }),
         payload: Joi.object({
           category: Joi.string().required(),
@@ -110,12 +110,12 @@ const routes = [
   },
   {
     method: 'DELETE',
-    path: '/expenses/{expenseId}',
+    path: '/expenses/{expenseid}',
     handler: deleteExpenseByIdHandler,
     options: {
       validate: {
         params: Joi.object({
-          expenseId: Joi.number().integer().required(),
+          expenseid: Joi.number().integer().required(),
         }),
         failAction: (request, h, error) => {
           const errMsg = error.details[0].message;
